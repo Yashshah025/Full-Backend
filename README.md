@@ -16,11 +16,21 @@ A secure, paginated, and rate-limited RESTful API built with Flask, SQLAlchemy, 
 
 ## 🛠️ Tech Stack
 
+### Backend
 *   **Framework**: Flask
-*   **Database**: SQLite (via Flask-SQLAlchemy)
-*   **Authentication**: Flask-JWT-Extended
-*   **Security & Safety**: Flask-Limiter, Flask-Cors, Werkzeug Security
-*   **Database Migrations**: Flask-Migrate (Alembic)
+*   **Database**: SQLite (via Flask-SQLAlchemy ORM)
+*   **Authentication**: Flask-JWT-Extended (Access & Refresh tokens)
+*   **Security**: Flask-Limiter (Rate limiting), Flask-Cors (CORS headers), Werkzeug Security (password hashing)
+*   **Migrations**: Flask-Migrate (Alembic database schema tracking)
+
+### Frontend
+*   **Core Library**: React 19
+*   **Build Tool**: Vite
+*   **Routing**: React Router DOM (v7)
+*   **HTTP Client**: Axios (with custom token refresh interceptors)
+*   **State Management**: React Context API (Auth state)
+*   **Icons**: Lucide React
+
 
 ---
 
