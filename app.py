@@ -9,6 +9,8 @@ from datetime import timedelta
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from handlers.error_handlers import register_error_handlers
+from handlers.jwt_handlers import register_jwt_callbacks
 from dotenv import load_dotenv
 import os
 
@@ -17,7 +19,6 @@ load_dotenv()
 app = Flask(__name__)
 
 CORS(app, origins=["http://localhost:3000"], allow_headers=["Content-Type", "Authorization"])
-
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///drinks.db"
 db = SQLAlchemy(app)
 
@@ -27,6 +28,8 @@ app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
 
 jwt = JWTManager(app)
 
+register_error_handlers(app)
+register_jwt_callbacks(jwt)
 migrate = Migrate(app,db)
 
 limiter = Limiter(key_func=get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
@@ -55,12 +58,6 @@ def admin_required(func):
         return func(*args, **kwargs)
 
     return wrapper
-
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    return {
-        "error": "Rate limit exceeded"
-    }, 429
 
 @app.route('/')
 def index():
