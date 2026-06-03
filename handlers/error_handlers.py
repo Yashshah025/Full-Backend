@@ -1,5 +1,6 @@
 from flask import jsonify
 from sqlalchemy.exc import SQLAlchemyError
+from marshmallow import ValidationError
 
 def register_error_handlers(app):
     @app.errorhandler(404)
@@ -33,3 +34,10 @@ def register_error_handlers(app):
         return jsonify ({
             "error": "Rate limit exceeded"
         }), 429
+    
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(error):
+
+        return jsonify({
+            "error": error.messages
+        }), 400

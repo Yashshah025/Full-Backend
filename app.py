@@ -11,6 +11,11 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from handlers.error_handlers import register_error_handlers
 from handlers.jwt_handlers import register_jwt_callbacks
+from marshmallow import ValidationError
+
+from schemas.auth_schema import RegisterSchema, LoginSchema
+from schemas.drink_schema import DrinkSchema, DrinkUpdateSchema
+from schemas.order_schema import OrderSchema
 from dotenv import load_dotenv
 import os
 
@@ -31,6 +36,12 @@ jwt = JWTManager(app)
 register_error_handlers(app)
 register_jwt_callbacks(jwt)
 migrate = Migrate(app,db)
+
+register_schema = RegisterSchema()
+login_schema = LoginSchema()
+drink_schema = DrinkSchema()
+order_schema = OrderSchema()
+drink_update_schema = DrinkUpdateSchema()
 
 limiter = Limiter(key_func=get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
@@ -106,23 +117,11 @@ class Order(db.Model):
 @app.route('/register', methods=['POST'])
 @limiter.limit("3 per minute")
 def register():
-    data = request.get_json(silent=True) or {}
+    data = register_schema.load(request.get_json())
 
-    username = data.get("username")
-    password = data.get("password")
-    role = data.get("role", "customer")
-
-    username = username.strip()
-    password = password.strip()
-
-    if not username:
-        return {"error": "Username is required"}, 400
-
-    if not password:
-        return {"error": "Password is required"}, 400
-
-    if User.query.filter_by(username=username).first():
-        return {"error": "Username already exists"}, 400
+    username = data["username"].strip()
+    password = data["password"].strip()
+    role = data["role"]
     
     hashed_password = generate_password_hash(password)
 
@@ -142,27 +141,17 @@ def register():
 @app.route('/login', methods=['POST'])
 @limiter.limit("5 per minute")
 def login():
-    data = request.get_json(silent=True) or {}
-    
-    username = data.get("username")
-    password = data.get("password")
-    
-    username = username.strip()
-    password = password.strip()
+    data = login_schema.load(request.get_json())
+
+    username = data["username"].strip()
+    password = data["password"].strip()
     
     user = User.query.filter_by(username=username).first()
 
     if user and check_password_hash(user.password_hash, password):
 
-        access_token = create_access_token(
-                                    identity=user.username,
-                                    additional_claims={
-                                        "role": user.role
-                                                }
-                                )
-        refresh_token = create_refresh_token(
-            identity = user.username
-        )
+        access_token = create_access_token(identity=user.username, additional_claims={"role": user.role})
+        refresh_token = create_refresh_token(identity = user.username)
 
         return {
             "access_token": access_token,
@@ -262,33 +251,13 @@ def get_through_id(id):
 @admin_required
 def add_drinks():
     
-    data = request.get_json(silent=True) or {}
-
-    if not data:
-        return {"error": "No JSON provided"}, 400
-    
-    if "name" not in data:
-        return {"error": "Name not given"}, 400
-
-    if "price" not in data:
-        return {"error": "price is required"}, 400 
-
-    if "description" not in data:
-        return {"error": "description is required"}, 400
-
-    try:
-        price = float(data["price"])
-    except:
-        return {"error": "Invalid price"}, 400
-
-    if price <= 0:
-        return {"error": "Price must be greater than 0"}, 400
+    data = drink_schema.load(request.get_json())
     
     drink = Drink(
-                    name = data["name"],
-                    description = data["description"],
-                    price = price
-                    )
+    name=data["name"],
+    description=data["description"],
+    price=data["price"]
+    )
     
     db.session.add(drink)
     db.session.commit()
@@ -299,12 +268,15 @@ def add_drinks():
 @jwt_required()
 @admin_required
 def update(id):
-    
+
     drink = Drink.query.get_or_404(id)
-    data = request.get_json(silent=True) or {}
-    
+
+    data = drink_update_schema.load(request.get_json() or {})
+
     if not data:
-        return {"error": "No JSON provided"}, 400
+        return {
+            "error": "At least one field is required"
+        }, 400
     
     if "name" in data:
         drink.name = data["name"]
@@ -313,17 +285,10 @@ def update(id):
         drink.description = data["description"]
 
     if "price" in data:
-        try:
-            price = float(data["price"])
-        except:
-            return {"error": "Invalid price"}, 400
-
-        if price <= 0:
-            return {"error": "Price must be greater than 0"}, 400
-
-        drink.price = price
+        drink.price = data["price"]
 
     db.session.commit()
+
     return drink.to_dict(), 200
 
 
@@ -336,17 +301,8 @@ def buy_drinks(drink_id):
 
     drink = Drink.query.get_or_404(drink_id)
 
-    data = request.get_json(silent=True) or {}
-
-    quantity = data.get("quantity", 1)
-    
-    try:
-        quantity = int(quantity)
-    except:
-        return {"error": "Invalid quantity"}, 400
-    
-    if quantity <= 0:
-        return {"error": "Quantity must be greater than 0"}, 400
+    data = order_schema.load(request.get_json()) or {}
+    quantity = data["quantity"]
     
     order = Order(
         user_id=user.id,
