@@ -184,3 +184,38 @@ The server will start running on `http://127.0.0.1:5000/` with debug mode enable
 *   **URL**: `/orders`
 *   **Method**: `GET`
 *   **Headers**: `Authorization: Bearer <ACCESS_TOKEN>`
+
+---
+
+## 🖥️ Frontend Client
+
+A premium, responsive React client built with **React 19**, **Vite**, and **React Router DOM**. It provides a fully interactive, glassmorphic UI to view, purchase, and configure items on the drinks menu.
+
+### 🌟 Key Features
+*   **Persistent Auth State**: User identity is stored statefully. Refresh tokens reside in `localStorage`, and access tokens are held in-memory (React Context API).
+*   **Automatic Interceptor Refreshes**: Customized Axios interceptor automatically coordinates refresh token rotation on `401 Unauthorized` responses and replays requests seamlessly.
+*   **Role-Based Dynamic Routing**: Protected route checks that block standard customers from accessing the Admin control dashboard.
+*   **Clean UI Cards & Skeletons**: Handcrafted CSS styles, animated skeleton cards on load, and custom interactive alerts.
+
+### 💻 Installation & Setup
+
+1. Navigate to the `frontend` subfolder:
+   ```bash
+   cd frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+   The client application will start running on **`http://localhost:3000`**.
+
+### 📂 Directory Layout
+*   `src/api/`: Axios client instance and API endpoints mapping.
+*   `src/context/`: Authentication context providers managing login state.
+*   `src/components/`: Reusable components (Navbar, loaders, custom alerts, protected route decorators).
+*   `src/pages/`: Main application pages (paginated Menu catalogs, beverage orders, profiles, and Admin CRUD modals).
+
