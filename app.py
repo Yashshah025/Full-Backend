@@ -12,7 +12,7 @@ from flask_limiter.util import get_remote_address
 from handlers.error_handlers import register_error_handlers
 from handlers.jwt_handlers import register_jwt_callbacks
 from marshmallow import ValidationError
-
+from flasgger import Swagger
 from schemas.auth_schema import RegisterSchema, LoginSchema
 from schemas.drink_schema import DrinkSchema, DrinkUpdateSchema
 from schemas.order_schema import OrderSchema
@@ -30,6 +30,41 @@ db = SQLAlchemy(app)
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=15)
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
+
+Swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+        "endpoint": 'apispec_1',
+        "route": '/apispec_1.json',
+        "rule_filter": lambda rule: True, # include all routes
+        "model_filter": lambda tag: True,  # include all models
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
+}
+
+template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "Drinks API",
+        "description": "API documentation for the Drinks Ordering application",
+        "version": "1.0.0"
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'"
+        }
+    }
+}
+
+swagger = Swagger(app, config=Swagger_config, template=template)
+
 
 jwt = JWTManager(app)
 
@@ -117,6 +152,39 @@ class Order(db.Model):
 @app.route('/register', methods=['POST'])
 @limiter.limit("3 per minute")
 def register():
+    """
+    Register a new user
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+            - role
+          properties:
+            username:
+              type: string
+              example: "john_doe"
+            password:
+              type: string
+              example: "securepassword123"
+            role:
+              type: string
+              enum: [customer, admin]
+              default: customer
+    responses:
+      201:
+        description: User successfully registered
+      400:
+        description: Validation error
+      429:
+        description: Rate limit exceeded
+    """
+    
     data = register_schema.load(request.get_json())
 
     username = data["username"].strip()
@@ -141,6 +209,40 @@ def register():
 @app.route('/login', methods=['POST'])
 @limiter.limit("5 per minute")
 def login():
+    """
+    Log in a user and retrieve tokens
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: "john_doe"
+            password:
+              type: string
+              example: "securepassword123"
+    responses:
+      200:
+        description: Successful login
+        schema:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+      401:
+        description: Invalid credentials
+      429:
+        description: Rate limit exceeded
+    """
     data = login_schema.load(request.get_json())
 
     username = data["username"].strip()
@@ -164,6 +266,26 @@ def login():
 @jwt_required(refresh = True)
 @limiter.limit("20 per minute")
 def refresh():
+    """
+    Refresh access token using a refresh token
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: New access and refresh tokens returned
+        schema:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+      401:
+        description: Token revoked or invalid
+      429:
+        description: Rate limit exceeded
+    """
     jti = get_jwt()['jti']
 
     db.session.add(TokenBlacklist(jti=jti))
@@ -186,6 +308,17 @@ def refresh():
 @app.route('/logout', methods=['POST'])
 @jwt_required(refresh=True)
 def logout():
+    """
+    Log out a user by revoking their refresh token
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Refresh token successfully revoked
+      401:
+        description: Missing or invalid token
+    """
 
     jti=get_jwt()['jti']
 
@@ -201,6 +334,17 @@ def logout():
 @app.route('/profile')
 @jwt_required()
 def Profile():
+    """
+    Get current user profile
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: User profile details
+      401:
+        description: Missing or invalid JWT token
+    """
     current_user = get_jwt_identity()
     claims = get_jwt()
     return {
@@ -211,6 +355,26 @@ def Profile():
 
 @app.route('/drinks', methods=['GET'])
 def get_menu():
+    """
+    Retrieve drinks menu (paginated)
+    ---
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: Page number to retrieve
+      - name: limit
+        in: query
+        type: integer
+        default: 10
+        description: Number of items per page
+    responses:
+      200:
+        description: A paginated list of drinks
+      400:
+        description: Invalid query parameters
+    """
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
 
@@ -242,6 +406,22 @@ def get_menu():
 
 @app.route('/drinks/<int:id>', methods=['GET'])
 def get_through_id(id):
+    """
+    Get a single drink by its ID
+    ---
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the drink
+    responses:
+      200:
+        description: Drink details returned
+      404:
+        description: Drink not found
+    """
+
     drink = Drink.query.get_or_404(id)
     return drink.to_dict(), 200
 
@@ -250,7 +430,41 @@ def get_through_id(id):
 @jwt_required()
 @admin_required
 def add_drinks():
-    
+    """
+    Add a new drink (Admin only)
+    ---
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - description
+            - price
+          properties:
+            name:
+              type: string
+              example: "Cortado"
+            description:
+              type: string
+              example: "Equal parts espresso and warm milk"
+            price:
+              type: number
+              example: 3.75
+    responses:
+      201:
+        description: Drink created successfully
+      400:
+        description: Validation error
+      401:
+        description: Unauthorized (missing or invalid token)
+      403:
+        description: Forbidden (requires admin role)
+    """
     data = drink_schema.load(request.get_json())
     
     drink = Drink(
@@ -268,7 +482,44 @@ def add_drinks():
 @jwt_required()
 @admin_required
 def update(id):
-
+    """
+    Update a drink's details partially (Admin only)
+    ---
+    security:
+      - Bearer: []
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the drink to update
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Iced Americano"
+            description:
+              type: string
+              example: "Espresso with cold water over ice"
+            price:
+              type: number
+              example: 3.00
+    responses:
+      200:
+        description: Drink updated successfully
+      400:
+        description: No fields provided for update
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden
+      404:
+        description: Drink not found
+    """
     drink = Drink.query.get_or_404(id)
 
     data = drink_update_schema.load(request.get_json() or {})
@@ -295,6 +546,37 @@ def update(id):
 @app.route('/buy/<int:drink_id>', methods=['POST'])
 @jwt_required()
 def buy_drinks(drink_id):
+    """
+    Place an order for a drink
+    ---
+    security:
+      - Bearer: []
+    parameters:
+      - name: drink_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the drink to buy
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            quantity:
+              type: integer
+              default: 1
+              description: Quantity of the drink to order (must be >= 1)
+    responses:
+      201:
+        description: Order placed successfully
+      400:
+        description: Validation error (e.g. quantity < 1)
+      401:
+        description: Unauthorized
+      404:
+        description: Drink not found
+    """
     current_user = get_jwt_identity()
 
     user = User.query.filter_by(username=current_user).first()
@@ -325,6 +607,18 @@ def buy_drinks(drink_id):
 @app.route('/orders')
 @jwt_required()
 def my_orders():
+    """
+    Retrieve order history of the current user
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: List of user's orders
+      401:
+        description: Unauthorized
+    """
+
     current_user = get_jwt_identity()
     user = User.query.filter_by(username=current_user).first()
 
@@ -345,7 +639,28 @@ def my_orders():
 @jwt_required()
 @admin_required
 def delete_drink(id):
-    
+    """
+    Delete a drink (Admin only)
+    ---
+    security:
+      - Bearer: []
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the drink to delete
+    responses:
+      204:
+        description: Drink successfully deleted
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden
+      404:
+        description: Drink not found
+    """
+
     drink = Drink.query.get_or_404(id)
 
     db.session.delete(drink)
