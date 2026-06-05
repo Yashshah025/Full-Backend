@@ -25,6 +25,8 @@ def register_error_handlers(app):
 
     @app.errorhandler(Exception)
     def handle_exception(error):
+        app.logger.error(f"Unhandled Exception: {error}", exc_info=True)
+
         return jsonify({
             "error": "Something went wrong"
         }), 500

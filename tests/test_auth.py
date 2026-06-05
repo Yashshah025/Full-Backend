@@ -4,8 +4,7 @@ from app import User, TokenBlacklist
 def test_register_success(client, db):
     payload = {
         "username": "yash_test",
-        "password": "securepassword123",
-        "role": "customer"
+        "password": "securepassword123"
     }
     response = client.post('/register', json=payload)
 
@@ -20,8 +19,7 @@ def test_register_success(client, db):
 def test_register_errors(client, db):
     payload = {
         "username": "ya",
-        "password": "securepassword123",
-        "role": "customer"
+        "password": "securepassword123"
     }
 
     response = client.post('/register', json=payload)
@@ -30,8 +28,7 @@ def test_register_errors(client, db):
 
     payload = {
         "username": "yash_test",
-        "password": "short",  # Length < 8
-        "role": "customer"
+        "password": "short"  # Length < 8
     }
     response = client.post('/register', json=payload)
     assert response.status_code == 400
@@ -41,8 +38,7 @@ def test_register_errors(client, db):
 def test_login_success(client, db):
     client.post('/register', json={
         "username": "login_tester",
-        "password": "password123",
-        "role": "customer"
+        "password": "password123"
     })
     
     payload = {
@@ -70,8 +66,7 @@ def test_login_invalid_credentials(client, db):
 def test_token_refresh(client, db):
     client.post('/register', json={
         "username": "refresh_tester",
-        "password": "password123",
-        "role": "customer"
+        "password": "password123"
     })
     login_res = client.post('/login', json={
         "username": "refresh_tester",
@@ -93,8 +88,7 @@ def test_token_refresh(client, db):
 def test_logout_and_revocation(client, db):
     client.post('/register', json={
         "username": "logout_tester",
-        "password": "password123",
-        "role": "customer"
+        "password": "password123"
     })
 
     login_res = client.post('/login', json={
@@ -128,8 +122,7 @@ def test_profile_retrieval(client, customer_header):
 def test_register_duplicate_username(client, db):
     payload = {
         "username": "duplicate_user",
-        "password": "securepassword123",
-        "role": "customer"
+        "password": "securepassword123"
     }
     # Register the user the first time (should succeed)
     response1 = client.post('/register', json=payload)

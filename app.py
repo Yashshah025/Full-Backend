@@ -11,7 +11,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from handlers.error_handlers import register_error_handlers
 from handlers.jwt_handlers import register_jwt_callbacks
-from marshmallow import ValidationError
 from flasgger import Swagger
 from schemas.auth_schema import RegisterSchema, LoginSchema
 from schemas.drink_schema import DrinkSchema, DrinkUpdateSchema
@@ -23,10 +22,12 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, origins=["http://localhost:3000"], allow_headers=["Content-Type", "Authorization"])
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///drinks.db"
-db = SQLAlchemy(app)
-
+CORS(app, origins=["http://localhost:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"], allow_headers=["Content-Type", "Authorization"])
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///drinks.db")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=15)
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
@@ -63,13 +64,9 @@ template = {
     }
 }
 
+db = SQLAlchemy(app)
 swagger = Swagger(app, config=Swagger_config, template=template)
-
-
 jwt = JWTManager(app)
-
-register_error_handlers(app)
-register_jwt_callbacks(jwt)
 migrate = Migrate(app,db)
 
 register_schema = RegisterSchema()
@@ -77,6 +74,8 @@ login_schema = LoginSchema()
 drink_schema = DrinkSchema()
 order_schema = OrderSchema()
 drink_update_schema = DrinkUpdateSchema()
+register_error_handlers(app)
+register_jwt_callbacks(jwt)
 
 limiter = Limiter(key_func=get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
 
@@ -89,7 +88,6 @@ def check_if_token_revoked(jwt_header, jwt_payload):
         return token is not None
 
     return False
-
 
 def admin_required(func):
 
@@ -108,7 +106,6 @@ def admin_required(func):
 @app.route('/')
 def index():
     return "Welcome to my App"
-
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key = True)
@@ -184,12 +181,12 @@ def register():
       429:
         description: Rate limit exceeded
     """
-    
+
     data = register_schema.load(request.get_json())
 
     username = data["username"].strip()
     password = data["password"].strip()
-    role = data["role"]
+    role = "customer"
     
     hashed_password = generate_password_hash(password)
 
@@ -422,7 +419,7 @@ def get_through_id(id):
         description: Drink not found
     """
 
-    drink = Drink.query.get_or_404(id)
+    drink = db.get_or_404(Drink, id)
     return drink.to_dict(), 200
 
 
@@ -520,7 +517,7 @@ def update(id):
       404:
         description: Drink not found
     """
-    drink = Drink.query.get_or_404(id)
+    drink = db.get_or_404(Drink, id)
 
     data = drink_update_schema.load(request.get_json() or {})
 
@@ -581,7 +578,7 @@ def buy_drinks(drink_id):
 
     user = User.query.filter_by(username=current_user).first()
 
-    drink = Drink.query.get_or_404(drink_id)
+    drink = db.get_or_404(Drink, drink_id)
 
     data = order_schema.load(request.get_json()) or {}
     quantity = data["quantity"]
@@ -661,7 +658,7 @@ def delete_drink(id):
         description: Drink not found
     """
 
-    drink = Drink.query.get_or_404(id)
+    drink = db.get_or_404(Drink, id)
 
     db.session.delete(drink)
     db.session.commit()

@@ -94,5 +94,5 @@ def test_delete_drink_admin(client, db, admin_header):
     response = client.delete(f'/drinks/{drink.id}', headers=admin_header)
     assert response.status_code == 204
     
-    deleted = Drink.query.get(drink.id)
+    deleted = db.session.get(Drink, drink.id)
     assert deleted is None
