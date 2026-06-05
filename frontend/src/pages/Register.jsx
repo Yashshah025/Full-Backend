@@ -7,7 +7,6 @@ export default function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('customer'); // Default to customer, can select admin for learning
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -26,7 +25,7 @@ export default function Register() {
     setLoading(true);
     setError('');
     try {
-      await authApi.register(username, password, role);
+      await authApi.register(username, password);
       setSuccess(true);
       setTimeout(() => {
         navigate('/login');
@@ -111,32 +110,6 @@ export default function Register() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Account Role</label>
-            <div style={styles.roleGroup}>
-              <button
-                type="button"
-                className={`btn ${role === 'customer' ? 'btn-primary' : 'btn-secondary'}`}
-                style={styles.roleBtn}
-                onClick={() => setRole('customer')}
-                disabled={loading || success}
-              >
-                <UserIcon size={14} /> Customer
-              </button>
-              <button
-                type="button"
-                className={`btn ${role === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
-                style={styles.roleBtn}
-                onClick={() => setRole('admin')}
-                disabled={loading || success}
-              >
-                <Shield size={14} /> Admin
-              </button>
-            </div>
-            <p style={styles.roleHelp}>
-              * Select Admin if you want to test menu adding, editing, and deleting.
-            </p>
-          </div>
 
           <button type="submit" className="btn btn-primary" style={styles.submitBtn} disabled={loading || success}>
             {loading ? 'Creating Account...' : 'Sign Up'}
