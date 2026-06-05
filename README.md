@@ -1,16 +1,19 @@
 # Flask Drinks Order API
 
-A secure, paginated, and rate-limited RESTful API built with Flask, SQLAlchemy, and SQLite. This API supports role-based access control (RBAC), access/refresh token authentication with token rotation, and CORS configuration.
+A secure, paginated, and rate-limited RESTful API built with Flask, SQLAlchemy, and PostgreSQL/SQLite, containerized with Docker. This app features a responsive Vite + React frontend client, role-based access control (RBAC), token-based authentication with rotation, automated test suites, and interactive API documentation.
+
+---
 
 ## 🚀 Features
 
 *   **Authentication & Authorization**: Secure user registration and login using salted password hashing (`werkzeug`). JWT authentication equipped with **Access & Refresh Tokens** and **Refresh Token Rotation**.
 *   **Token Revocation**: Active token blocklist system using database tracking to handle secure user logouts.
-*   **Role-Based Access Control (RBAC)**: Specific administrative actions (like modifying the drinks menu) are protected with a custom `@admin_required` decorator.
-*   **Paginated Endpoints**: The drinks list endpoint supports database-level offset pagination using `page` and `limit` query parameters.
-*   **Rate Limiting**: Built-in protection against brute-force and spam requests using `Flask-Limiter` (e.g., login limits, registration throttles).
-*   **CORS Enabled**: Configured to safely permit cross-origin requests from specific frontend servers (defaults to `http://localhost:3000`).
-*   **Database Migrations**: Version-controlled database schema management using `Flask-Migrate` and Alembic.
+*   **Role-Based Access Control (RBAC)**: Specific administrative actions (like modifying the drinks menu) are protected with a custom `@admin_required` decorator. Public registration is locked to the `"customer"` role for safety.
+*   **Dockerized Stack**: Run both the Flask API and the React frontend concurrently with a single command (`docker compose up`) featuring hot reloading.
+*   **PostgreSQL Support**: Integrated with production-ready PostgreSQL cloud hosting (e.g., Neon.tech) while maintaining a local SQLite fallback.
+*   **Interactive API Docs (Swagger)**: Beautiful, interactive documentation served at `/apidocs/` via Flasgger, configured to support testing JWT-protected endpoints directly from the browser.
+*   **Automated Testing**: 18 integration tests using `pytest` covering authentication flow, menu pagination, admin constraints, and order placing with database mock isolation.
+*   **Database Sync Script**: Easily clone remote PostgreSQL tables to a local SQLite database for offline development.
 
 ---
 
@@ -18,9 +21,11 @@ A secure, paginated, and rate-limited RESTful API built with Flask, SQLAlchemy, 
 
 ### Backend
 *   **Framework**: Flask
-*   **Database**: SQLite (via Flask-SQLAlchemy ORM)
-*   **Authentication**: Flask-JWT-Extended (Access & Refresh tokens)
-*   **Security**: Flask-Limiter (Rate limiting), Flask-Cors (CORS headers), Werkzeug Security (password hashing)
+*   **Database**: PostgreSQL (via Neon.tech) / SQLite (fallback)
+*   **ORM**: Flask-SQLAlchemy
+*   **Authentication**: Flask-JWT-Extended
+*   **Documentation**: Flasgger (Swagger UI)
+*   **Testing**: Pytest
 *   **Migrations**: Flask-Migrate (Alembic database schema tracking)
 
 ### Frontend
@@ -28,81 +33,126 @@ A secure, paginated, and rate-limited RESTful API built with Flask, SQLAlchemy, 
 *   **Build Tool**: Vite
 *   **Routing**: React Router DOM (v7)
 *   **HTTP Client**: Axios (with custom token refresh interceptors)
-*   **State Management**: React Context API (Auth state)
-*   **Icons**: Lucide React
-
+*   **State/Theme**: CSS variables, React Context API
 
 ---
 
-## 💻 Setup & Installation
+## 🐳 Docker Setup & Installation (Recommended)
+
+The easiest way to run the entire stack (both backend and frontend) is using Docker.
 
 ### Prerequisites
-*   Python 3.8+ installed on your system.
+*   [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running on your machine.
+*   A `.env` file in the root directory configured with your database URL and secret key.
 
-### 1. Clone the repository
+### 1. Build and Run the Containers
+In the root directory, run:
 ```bash
-git clone <your-repository-url>
-cd api
+# Build the container images
+docker compose build
+
+# Start the services
+docker compose up
 ```
 
-### 2. Set up virtual environment
+This will launch:
+*   **Frontend**: `http://localhost:3000`
+*   **Backend API**: `http://localhost:5000`
+*   **Swagger Documentation**: `http://localhost:5000/apidocs/`
+
+*Note: Changes made to files in VS Code will hot-reload automatically inside the Docker containers!*
+
+---
+
+## 💻 Manual Setup & Installation (Without Docker)
+
+### Prerequisites
+*   Python 3.12+ and Node.js (v18+) installed.
+
+### 1. Set up the Backend
+1. Navigate to the root directory and create a virtual environment:
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate      # Windows
+   source .venv/bin/activate    # Mac/Linux
+   ```
+2. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Configure your `.env` file:
+   ```env
+   JWT_SECRET_KEY=your_super_secret_jwt_key_here
+   DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+   ```
+4. Run database migrations:
+   ```bash
+   flask db upgrade
+   ```
+5. Start the server:
+   ```bash
+   python app.py
+   ```
+
+### 2. Set up the Frontend
+1. Navigate to the `frontend` subfolder:
+   ```bash
+   cd frontend
+   ```
+2. Install Node packages:
+   ```bash
+   npm install
+   ```
+3. Start the Vite development server:
+   ```bash
+   npm run dev
+   ```
+   The client will open on `http://localhost:3000`.
+
+---
+
+## 🧪 Running the Test Suite
+
+We have a suite of **18 automated integration tests** built using `pytest`. They use an isolated, in-memory SQLite database so that they never affect your production Postgres data.
+
+Run the tests inside your active virtual environment:
 ```bash
-# Create a virtual environment
-python -m venv .venv
-
-# Activate it (Windows)
-.venv\Scripts\activate
-
-# Activate it (Mac/Linux)
-source .venv/bin/activate
+python -m pytest -v
 ```
 
-### 3. Install dependencies
+---
+
+## 🔧 Database Utilities & Admin Setup
+
+### 1. Create an Admin User
+Since public registration restricts all users to the `"customer"` role, run the secure admin command-line tool to bootstrap admin accounts:
 ```bash
-pip install -r requirements.txt
+python create_admin.py <username> <password>
 ```
 
-### 4. Configure Environment Variables
-Create a `.env` file in the root directory:
-```env
-JWT_SECRET_KEY=your_fallback_super_secret_jwt_key_here
-```
-
-### 5. Run Database Migrations
-Initialize the SQLite database schema:
+### 2. Seeding the Menu
+To seed 50 premium drinks into your database to test pagination, run:
 ```bash
-flask db upgrade
+python seed_50.py
 ```
 
-### 6. Start the API Server
+### 3. Sync Database Offline
+To copy all users, orders, and drinks from PostgreSQL (Neon) to your local SQLite file for offline coding:
 ```bash
-python app.py
+python sync_to_sqlite.py
 ```
-The server will start running on `http://127.0.0.1:5000/` with debug mode enabled.
 
 ---
 
 ## 🔌 API Reference & Endpoints
+
+You can view and test all endpoints interactively by visiting **`http://localhost:5000/apidocs/`** once your server is running.
 
 ### 🔐 Authentication
 
 #### Register a New User
 *   **URL**: `/register`
 *   **Method**: `POST`
-*   **Rate Limit**: `3 per minute`
-*   **Request Body**:
-    ```json
-    {
-      "username": "john_doe",
-      "password": "securepassword123",
-      "role": "customer" 
-    }
-    ```
-
-#### User Login
-*   **URL**: `/login`
-*   **Method**: `POST`
-*   **Rate Limit**: `5 per minute`
 *   **Request Body**:
     ```json
     {
@@ -110,6 +160,10 @@ The server will start running on `http://127.0.0.1:5000/` with debug mode enable
       "password": "securepassword123"
     }
     ```
+
+#### User Login
+*   **URL**: `/login`
+*   **Method**: `POST`
 *   **Response**:
     ```json
     {
@@ -118,35 +172,22 @@ The server will start running on `http://127.0.0.1:5000/` with debug mode enable
     }
     ```
 
-#### Token Refresh (Access Token Renewal)
+#### Token Refresh
 *   **URL**: `/refresh`
 *   **Method**: `POST`
-*   **Rate Limit**: `20 per minute`
 *   **Headers**: `Authorization: Bearer <REFRESH_TOKEN>`
-*   **Response**:
-    ```json
-    {
-      "access_token": "new_access_token_here",
-      "refresh_token": "new_refresh_token_here"
-    }
-    ```
 
-#### Logout (Revoke Refresh Token)
+#### Logout
 *   **URL**: `/logout`
 *   **Method**: `POST`
 *   **Headers**: `Authorization: Bearer <REFRESH_TOKEN>`
-
----
 
 ### 🥤 Drinks Menu
 
 #### Get Menu (Paginated)
 *   **URL**: `/drinks`
 *   **Method**: `GET`
-*   **Query Parameters**:
-    *   `page` (default: 1): Page number.
-    *   `limit` (default: 10, max: 100): Items per page.
-*   **Example Request**: `/drinks?page=1&limit=5`
+*   **Query Parameters**: `page` (default: 1), `limit` (default: 10)
 
 #### Get Drink Details
 *   **URL**: `/drinks/<int:id>`
@@ -156,26 +197,6 @@ The server will start running on `http://127.0.0.1:5000/` with debug mode enable
 *   **URL**: `/drinks`
 *   **Method**: `POST`
 *   **Headers**: `Authorization: Bearer <ACCESS_TOKEN>`
-*   **Request Body**:
-    ```json
-    {
-      "name": "Iced Latte",
-      "description": "Chilled espresso with fresh milk",
-      "price": 3.99
-    }
-    ```
-
-#### Update Drink (Admin Only)
-*   **URL**: `/drinks/<int:id>`
-*   **Method**: `PATCH`
-*   **Headers**: `Authorization: Bearer <ACCESS_TOKEN>`
-
-#### Delete Drink (Admin Only)
-*   **URL**: `/drinks/<int:id>`
-*   **Method**: `DELETE`
-*   **Headers**: `Authorization: Bearer <ACCESS_TOKEN>`
-
----
 
 ### 🛒 Orders
 
@@ -183,49 +204,9 @@ The server will start running on `http://127.0.0.1:5000/` with debug mode enable
 *   **URL**: `/buy/<int:drink_id>`
 *   **Method**: `POST`
 *   **Headers**: `Authorization: Bearer <ACCESS_TOKEN>`
-*   **Request Body** *(Optional)*:
-    ```json
-    {
-      "quantity": 2
-    }
-    ```
+*   **Request Body**: `{"quantity": 2}`
 
-#### View My Order History
+#### View Order History
 *   **URL**: `/orders`
 *   **Method**: `GET`
 *   **Headers**: `Authorization: Bearer <ACCESS_TOKEN>`
-
----
-
-## 🖥️ Frontend Client
-
-A premium, responsive React client built with **React 19**, **Vite**, and **React Router DOM**. It provides a fully interactive, glassmorphic UI to view, purchase, and configure items on the drinks menu.
-
-### 🌟 Key Features
-*   **Persistent Auth State**: User identity is stored statefully. Refresh tokens reside in `localStorage`, and access tokens are held in-memory (React Context API).
-*   **Automatic Interceptor Refreshes**: Customized Axios interceptor automatically coordinates refresh token rotation on `401 Unauthorized` responses and replays requests seamlessly.
-*   **Role-Based Dynamic Routing**: Protected route checks that block standard customers from accessing the Admin control dashboard.
-*   **Clean UI Cards & Skeletons**: Handcrafted CSS styles, animated skeleton cards on load, and custom interactive alerts.
-
-### 💻 Installation & Setup
-
-1. Navigate to the `frontend` subfolder:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-   The client application will start running on **`http://localhost:3000`**.
-
-### 📂 Directory Layout
-*   `src/api/`: Axios client instance and API endpoints mapping.
-*   `src/context/`: Authentication context providers managing login state.
-*   `src/components/`: Reusable components (Navbar, loaders, custom alerts, protected route decorators).
-*   `src/pages/`: Main application pages (paginated Menu catalogs, beverage orders, profiles, and Admin CRUD modals).
-
