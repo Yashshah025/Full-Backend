@@ -124,3 +124,18 @@ def test_profile_retrieval(client, customer_header):
     data = response.get_json()
     assert data["user"] == "customer_tester"
     assert data["role"] == "customer"
+
+def test_register_duplicate_username(client, db):
+    payload = {
+        "username": "duplicate_user",
+        "password": "securepassword123",
+        "role": "customer"
+    }
+    # Register the user the first time (should succeed)
+    response1 = client.post('/register', json=payload)
+    assert response1.status_code == 201
+
+    # Try to register the exact same username again (should fail with 400)
+    response2 = client.post('/register', json=payload)
+    assert response2.status_code == 400
+    assert response2.get_json()["error"] == "Username already exists"

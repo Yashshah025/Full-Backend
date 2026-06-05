@@ -1,6 +1,7 @@
 from flask import jsonify
 from sqlalchemy.exc import SQLAlchemyError
 from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 def register_error_handlers(app):
     @app.errorhandler(404)
@@ -40,4 +41,10 @@ def register_error_handlers(app):
 
         return jsonify({
             "error": error.messages
+        }), 400
+    
+    @app.errorhandler(IntegrityError)
+    def handle_integrity_error(error):
+        return jsonify({
+            "error": "Username already exists"
         }), 400
