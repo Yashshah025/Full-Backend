@@ -26,7 +26,8 @@ CORS(app, origins=["http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:5173",
-    "http://127.0.0.1:5173"], allow_headers=["Content-Type", "Authorization"])
+    "http://127.0.0.1:5173"],
+    "https://sip-saviour-frontend.vercel.app", allow_headers=["Content-Type", "Authorization"])
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///drinks.db")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=15)
