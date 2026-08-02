@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { authApi } from '../api/authApi';
-import { setAccessToken } from '../api/axios';
+import API, { setAccessToken } from '../api/axios';
 import axios from 'axios';
 
 export const AuthContext = createContext(null);
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
         try {
           // Verify and fetch initial access token using stored refresh token
           const response = await axios.post(
-            'http://127.0.0.1:5000/refresh',
+            `${API.defaults.baseURL}/refresh`,
             {},
             {
               headers: {

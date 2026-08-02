@@ -22,13 +22,20 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, origins=["http://localhost:3000",
+CORS(app, origins=[
+    "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:5000",
     "http://localhost:5173",
-    "http://127.0.0.1:5173"],
-    "https://sip-saviour-frontend.vercel.app", allow_headers=["Content-Type", "Authorization"])
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///drinks.db")
+    "http://127.0.0.1:5173",
+    "https://sip-saviour-frontend.vercel.app",
+    "*"
+], allow_headers=["Content-Type", "Authorization"])
+
+db_url = os.getenv("DATABASE_URL", "sqlite:///drinks.db")
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=15)
 app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=7)
@@ -145,6 +152,36 @@ class Order(db.Model):
 
     quantity = db.Column(db.Integer, nullable = False)
     total_price = db.Column(db.Float, nullable = False)
+
+
+with app.app_context():
+    db.create_all()
+    try:
+        if Drink.query.count() == 0:
+            print("Database is empty, auto-seeding default drinks...")
+            default_drinks = [
+                {"name": "Espresso", "description": "Rich, concentrated shot of espresso.", "price": 2.50},
+                {"name": "Macchiato", "description": "Espresso stained with a dollop of foamed milk.", "price": 3.00},
+                {"name": "Cortado", "description": "Equal parts espresso and warm silky milk.", "price": 3.25},
+                {"name": "Cappuccino", "description": "Espresso with equal parts steamed milk and foam.", "price": 3.75},
+                {"name": "Latte", "description": "Espresso with steamed milk and a light layer of foam.", "price": 4.00},
+                {"name": "Flat White", "description": "Double shot of espresso with velvety microfoam.", "price": 4.00},
+                {"name": "Americano", "description": "Espresso shots topped with hot water.", "price": 3.00},
+                {"name": "Mocha", "description": "Espresso with steamed milk and rich chocolate syrup.", "price": 4.50},
+                {"name": "Cold Brew", "description": "Slow-steeped iced coffee, smooth and low-acid.", "price": 3.50},
+                {"name": "Caramel Macchiato", "description": "Steamed milk with vanilla, marked with espresso and caramel.", "price": 4.75}
+            ]
+            for drink_info in default_drinks:
+                db.session.add(Drink(
+                    name=drink_info["name"],
+                    description=drink_info["description"],
+                    price=drink_info["price"]
+                ))
+            db.session.commit()
+            print("Successfully auto-seeded default drinks!")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error during database initialization/seeding: {e}")
 
 
 @app.route('/register', methods=['POST'])

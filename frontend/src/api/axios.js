@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'https://sip-saviour.onrender.com',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://sip-saviour.onrender.com',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -78,7 +78,7 @@ API.interceptors.response.use(
       try {
         // Flask API refresh endpoint expects the refresh token in the Authorization header
         const response = await axios.post(
-          'http://127.0.0.1:5000/refresh',
+          `${API.defaults.baseURL}/refresh`,
           {},
           {
             headers: {

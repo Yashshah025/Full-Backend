@@ -17,7 +17,7 @@ export const authApi = {
     if (refreshToken) {
       // Use direct axios call since /logout requires refresh token auth, not access token auth
       await axios.post(
-        'http://127.0.0.1:5000/logout',
+        `${API.defaults.baseURL}/logout`,
         {},
         {
           headers: {
